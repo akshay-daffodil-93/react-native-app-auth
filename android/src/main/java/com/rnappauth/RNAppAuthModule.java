@@ -300,10 +300,19 @@ public class RNAppAuthModule extends ReactContextBaseJavaModule implements Activ
     @Override
     public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
         if (requestCode == 0) {
+
+             if (data == null) {
+                if (promise != null) {
+                    promise.reject("authentication_error", "Data intent is null" );
+                }
+                return;
+            }
             final AuthorizationResponse response = AuthorizationResponse.fromIntent(data);
             AuthorizationException exception = AuthorizationException.fromIntent(data);
             if (exception != null) {
-                promise.reject("Failed to authenticate", exception.errorDescription);
+                 if (promise != null) {
+                    promise.reject("authentication_error", getErrorMessage(exception));
+                }
                 return;
             }
 
@@ -323,9 +332,13 @@ public class RNAppAuthModule extends ReactContextBaseJavaModule implements Activ
                         TokenResponse resp, AuthorizationException ex) {
                     if (resp != null) {
                         WritableMap map = TokenResponseFactory.tokenResponseToMap(resp, response);
-                        authorizePromise.resolve(map);
+                        if (authorizePromise != null) {
+                            authorizePromise.resolve(map);
+                        }
                     } else {
-                        promise.reject("Failed exchange token", ex.errorDescription);
+                         if (promise != null) {
+                            promise.reject("token_exchange_failed", getErrorMessage(ex));
+                        }
                     }
                 }
             };
@@ -512,6 +525,14 @@ public class RNAppAuthModule extends ReactContextBaseJavaModule implements Activ
             strBuilder.append(array.getString(i));
         }
         return strBuilder.toString();
+    }
+    /*
+     * Return error information if it is available
+     */
+     private String getErrorMessage(AuthorizationException ex){
+        if(ex.errorDescription == null && ex.error != null)
+            return ex.error;
+        return ex.errorDescription;
     }
 
     /*
